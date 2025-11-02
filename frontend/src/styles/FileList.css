@@ -1,0 +1,118 @@
+.file-list {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.file-table thead {
+  background: #f8f9fa;
+}
+
+.file-table th {
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.file-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.file-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.file-table td {
+  padding: 15px;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-icon {
+  font-size: 1.5rem;
+}
+
+.shared-count {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.not-shared {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-action:hover {
+  transform: scale(1.1);
+}
+
+.btn-download:hover {
+  background: #e3f2fd;
+}
+
+.btn-share:hover {
+  background: #fff3e0;
+}
+
+.btn-logs:hover {
+  background: #f3e5f5;
+}
+
+.btn-delete:hover {
+  background: #ffebee;
+}
+
+@media (max-width: 768px) {
+  .file-table {
+    font-size: 0.85rem;
+  }
+
+  .file-table th,
+  .file-table td {
+    padding: 10px 8px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .btn-action {
+    font-size: 1.1rem;
+  }
+}
