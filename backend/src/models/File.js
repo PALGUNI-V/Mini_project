@@ -27,6 +27,7 @@ const fileSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  integrityHash: { type: String },
   sharedWith: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,

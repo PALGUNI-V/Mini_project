@@ -23,25 +23,28 @@ const upload = multer({
     fileSize: parseInt(process.env.MAX_FILE_SIZE) || 50 * 1024 * 1024 // 50MB default
   },
   fileFilter: (req, file, cb) => {
-    // Optional: Add file type restrictions here
     cb(null, true);
   }
 });
 
-// All routes require authentication
+// ✅ All routes require authentication
 router.use(protect);
 
-// File management routes
+// ✅ File management routes
 router.post('/upload', upload.single('file'), fileController.uploadFile);
 router.get('/', fileController.getFiles);
+
+// 🧩 FIXED: call from controller, not destructured import
+router.get('/verify/:id', fileController.verifyFileIntegrity);
+
 router.get('/:fileId/download', checkFileAccess, fileController.downloadFile);
 router.delete('/:fileId', checkFileOwnership, fileController.deleteFile);
 
-// Sharing routes
+// ✅ Sharing routes
 router.post('/:fileId/share', checkFileOwnership, fileController.shareFile);
 router.delete('/:fileId/share/:userId', checkFileOwnership, fileController.unshareFile);
 
-// Audit logs
+// ✅ Audit logs
 router.get('/:fileId/audit-logs', checkFileOwnership, fileController.getFileAuditLogs);
 
 module.exports = router;

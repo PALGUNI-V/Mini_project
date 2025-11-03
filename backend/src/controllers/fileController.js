@@ -4,55 +4,40 @@ const User = require('../models/User');
 const encryptionUtil = require('../utils/encryption');
 const path = require('path');
 const fs = require('fs').promises;
-
+const crypto = require('crypto');
 /**
  * Upload and encrypt file
  * POST /api/files/upload
  */
+
 exports.uploadFile = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
     const uploadedFile = req.file;
     const userId = req.user._id;
-
-    // Read uploaded file
     const fileBuffer = await fs.readFile(uploadedFile.path);
 
-    // Prepare watermark data
     const watermarkData = {
       ownerId: userId.toString(),
       timestamp: new Date().toISOString(),
       username: req.user.username
     };
 
-    // Encrypt file with watermark
-    const { encryptedBuffer } = await encryptionUtil.encryptFile(
-      fileBuffer,
-      watermarkData
-    );
-    
+    const { encryptedBuffer } = await encryptionUtil.encryptFile(fileBuffer, watermarkData);
 
-// Log watermark embedding confirmation
-console.log("🪶 Watermark embedded successfully:", watermarkData);
-
-
-    // Generate secure filename
     const encryptedFilename = encryptionUtil.generateSecureFilename(uploadedFile.originalname);
     const encryptedPath = path.join(process.env.UPLOAD_DIR || './uploads', encryptedFilename);
 
-    // Save encrypted file
     await fs.writeFile(encryptedPath, encryptedBuffer);
 
-    // Delete original unencrypted file
+    // ✅ Compute integrity hash of encrypted file
+    const encryptedHash = crypto.createHash('sha256').update(encryptedBuffer).digest('hex');
+
     await fs.unlink(uploadedFile.path);
 
-    // Save file metadata to database
     const file = await File.create({
       filename: encryptedFilename,
       originalName: uploadedFile.originalname,
@@ -60,13 +45,10 @@ console.log("🪶 Watermark embedded successfully:", watermarkData);
       size: uploadedFile.size,
       encryptedPath,
       owner: userId,
-      watermarkData: {
-        ...watermarkData,
-        embedded: true
-      }
+      integrityHash: encryptedHash,
+      watermarkData: { ...watermarkData, embedded: true }
     });
 
-    // Log action
     await AuditLog.logAction({
       file: file._id,
       action: 'upload',
@@ -82,25 +64,11 @@ console.log("🪶 Watermark embedded successfully:", watermarkData);
     });
   } catch (error) {
     console.error('Upload error:', error);
-    
-    // Clean up uploaded file if exists
-    if (req.file && req.file.path) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch (unlinkError) {
-        console.error('Error deleting file:', unlinkError);
-      }
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading file',
-      error: error.message
-    });
+    if (req.file && req.file.path) await fs.unlink(req.file.path).catch(() => {});
+    res.status(500).json({ success: false, message: 'Error uploading file', error: error.message });
   }
 };
 
-module.exports = exports;
 
 /**
  * Download and decrypt file
@@ -108,16 +76,30 @@ module.exports = exports;
  */
 exports.downloadFile = async (req, res) => {
   try {
-    const file = req.file; // From checkFileAccess middleware
+    const file = req.file; // From middleware
     const userId = req.user._id;
 
-    // 🔐 Step 1: Decrypt the file using AES
+    // ✅ Step 1: Verify integrity BEFORE decryption
+    const encryptedBuffer = await fs.readFile(file.encryptedPath);
+    const encryptedHash = crypto.createHash('sha256').update(encryptedBuffer).digest('hex');
+
+    if (encryptedHash !== file.integrityHash) {
+      console.error('⚠️ Integrity check failed: File may be tampered or corrupted');
+      return res.status(400).json({
+        success: false,
+        message: 'Integrity check failed — file may have been tampered or corrupted.'
+      });
+    }
+
+    console.log('✅ Integrity verified successfully');
+
+    // ✅ Step 2: Decrypt file
     const { fileBuffer, watermarkData } = await encryptionUtil.decryptFileFromPath(file.encryptedPath);
 
-    // 🧠 Step 2: Log watermark data for backend visibility
-    console.log("✅ Watermark data recovered:", watermarkData);
+    // 🧠 Step 3: Log watermark data
+    console.log("Watermark data recovered:", watermarkData);
 
-    // 📝 Step 3: Log download activity in AuditLog
+    // 📝 Step 4: Log audit
     await AuditLog.logAction({
       file: file._id,
       action: 'download',
@@ -127,10 +109,11 @@ exports.downloadFile = async (req, res) => {
       metadata: { watermark: watermarkData }
     });
 
-    // 📤 Step 4: Send decrypted file to frontend
+    // 📤 Step 5: Send decrypted file
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
     res.setHeader('Content-Length', fileBuffer.length);
+    res.setHeader('X-File-Integrity', 'Verified');
     res.send(fileBuffer);
 
   } catch (error) {
@@ -142,6 +125,7 @@ exports.downloadFile = async (req, res) => {
     });
   }
 };
+
 
 /**
  * Share file with user
@@ -351,4 +335,47 @@ exports.getFiles = async (req, res) => {
       error: error.message
     });
   }
+  
 };
+/**
+ * Verify file integrity (SHA-256)
+ * GET /api/files/verify/:id
+ */
+exports.verifyFileIntegrity = async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    const file = await File.findById(fileId);
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    // Read encrypted file from disk
+    const fileBuffer = await fs.readFile(file.encryptedPath);
+
+    // Recompute hash
+    const currentHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+    // Compare with stored hash
+    const match = currentHash === file.integrityHash;
+
+    res.status(200).json({
+      success: true,
+      match,
+      originalHash: file.integrityHash,
+      currentHash,
+      message: match ? '✅ File integrity verified' : '⚠️ Integrity mismatch detected'
+    });
+  } catch (error) {
+    console.error('Error verifying integrity:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying file integrity',
+      error: error.message
+    });
+  }
+};
+
