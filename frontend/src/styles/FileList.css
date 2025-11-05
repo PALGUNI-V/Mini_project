@@ -146,3 +146,44 @@
   cursor: default;
   font-weight: 500;
 }
+/* 🌟 Popup Notification Styles (Top Center) */
+.popup-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #2f3542;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 99999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* ✅ Smooth fade-in/out animation */
+.popup-message.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.popup-message.hide {
+  opacity: 0;
+  transform: translate(-50%, -20px);
+}
+
+/* ✅ Different color themes */
+.popup-message.success {
+  background-color: #2ecc71;
+}
+
+.popup-message.error {
+  background-color: #e74c3c;
+}
+
+.popup-message.warning {
+  background-color: #f39c12;
+}

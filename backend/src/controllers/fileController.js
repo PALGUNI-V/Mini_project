@@ -345,15 +345,32 @@ exports.getFiles = async (req, res) => {
  * Verify file integrity (SHA-256)
  * GET /api/files/verify/:id
  */
+/**
+ * Verify file integrity (SHA-256)
+ * GET /api/files/verify/:id
+ */
 exports.verifyFileIntegrity = async (req, res) => {
   try {
     const fileId = req.params.id;
+    const userId = req.user?._id; // optional for logging
     const file = await File.findById(fileId);
 
     if (!file) {
       return res.status(404).json({
-        success: false,
-        message: 'File not found'
+        match: false,
+        message: "❌ File not found",
+      });
+    }
+
+    // Ensure file exists physically
+    const fileExists = await fs
+      .access(file.encryptedPath)
+      .then(() => true)
+      .catch(() => false);
+    if (!fileExists) {
+      return res.status(404).json({
+        match: false,
+        message: "⚠️ File missing on server",
       });
     }
 
@@ -361,25 +378,49 @@ exports.verifyFileIntegrity = async (req, res) => {
     const fileBuffer = await fs.readFile(file.encryptedPath);
 
     // Recompute hash
-    const currentHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    const currentHash = crypto
+      .createHash("sha256")
+      .update(fileBuffer)
+      .digest("hex");
 
     // Compare with stored hash
     const match = currentHash === file.integrityHash;
 
-    res.status(200).json({
-      success: true,
-      match,
-      originalHash: file.integrityHash,
-      currentHash,
-      message: match ? '✅ File integrity verified' : '⚠️ Integrity mismatch detected'
+    // Log audit (optional but recommended)
+    await AuditLog.logAction({
+      file: file._id,
+      action: "verify",
+      performedBy: userId || null,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+      metadata: {
+        verified: match,
+        currentHash,
+        storedHash: file.integrityHash,
+      },
     });
+
+    // Send response based on match result
+    if (match) {
+      console.log(`✅ Integrity verified for ${file.originalName}`);
+      return res.status(200).json({
+        match: true,
+        watermarkData: file.watermarkData || null,
+        message: "✅ File integrity verified successfully",
+      });
+    } else {
+      console.warn(`⚠️ Integrity mismatch detected for ${file.originalName}`);
+      return res.status(200).json({
+        match: false,
+        watermarkData: file.watermarkData || null,
+        message: "⚠️ Integrity mismatch detected – file may be modified or corrupted",
+      });
+    }
   } catch (error) {
-    console.error('Error verifying integrity:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error verifying file integrity',
-      error: error.message
+    console.error("❌ Error verifying integrity:", error);
+    return res.status(500).json({
+      match: false,
+      message: "❌ Internal error verifying file integrity",
     });
   }
 };
-

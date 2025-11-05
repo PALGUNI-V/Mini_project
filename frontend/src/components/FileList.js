@@ -1,60 +1,80 @@
-import React from 'react';
-import '../styles/FileList.css';
+import React, { useState } from "react";
+import "../styles/FileList.css";
+import PopupMessage from "./PopupMessage"; // ✅ Add this component for popup notifications
 
-const FileList = ({ 
-  files, 
-  isOwner, 
-  onDownload, 
-  onDelete, 
-  onShare, 
+const FileList = ({
+  files,
+  isOwner,
+  onDownload,
+  onDelete,
+  onShare,
   onViewAuditLogs,
   formatFileSize,
-  formatDate 
+  formatDate,
 }) => {
+  // ✅ Popup state
+  const [popup, setPopup] = useState({ show: false, message: "", type: "" });
+
+  // ✅ Reusable popup function
+  const showPopup = (message, type = "success") => {
+    setPopup({ show: true, message, type });
+  };
 
   // ✅ Simplified Integrity Verification Function
- const verifyIntegrity = async (file) => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Please log in again — missing token.');
-      return;
-    }
-
-    const response = await fetch(`http://localhost:5000/api/files/verify/${file._id}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`, // ✅ Include JWT token here
-        'Content-Type': 'application/json'
+  const verifyIntegrity = async (file) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        showPopup("Please log in again — missing token.", "error");
+        return;
       }
-    });
 
-    if (response.status === 401) {
-      alert('❌ Unauthorized — please log in again.');
-      return;
+      const response = await fetch(
+        `http://localhost:5000/api/files/verify/${file._id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        showPopup("❌ Unauthorized — please log in again.", "error");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.match) {
+        showPopup(`✅ Integrity verified for ${file.originalName}`, "success");
+        console.log("Watermark:", data.watermarkData);
+      } else {
+        showPopup(`⚠️ Integrity mismatch for ${file.originalName}`, "error");
+      }
+    } catch (error) {
+      console.error("Error verifying integrity:", error);
+      showPopup("Error verifying file integrity.", "error");
     }
+  };
 
-    const data = await response.json();
-
-    if (data.match) {
-      alert(`✅ Integrity verified for ${file.originalName}`);
-      console.log('Watermark:', data.watermarkData);
-    } else {
-      alert(`⚠️ Integrity mismatch for ${file.originalName}`);
-    }
-  } catch (error) {
-    console.error('Error verifying integrity:', error);
-    alert('Error verifying file integrity.');
-  }
-};
-
-
+  // ✅ Empty state
   if (files.length === 0) {
     return (
       <div className="empty-state">
         <span className="empty-icon">📂</span>
         <p>No files to display</p>
-        {isOwner && <p className="empty-hint">Upload your first file to get started</p>}
+        {isOwner && (
+          <p className="empty-hint">Upload your first file to get started</p>
+        )}
+        {popup.show && (
+          <PopupMessage
+            message={popup.message}
+            type={popup.type}
+            onClose={() => setPopup({ show: false, message: "", type: "" })}
+          />
+        )}
       </div>
     );
   }
@@ -73,6 +93,7 @@ const FileList = ({
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {files.map((file) => (
             <tr key={file._id}>
@@ -82,6 +103,7 @@ const FileList = ({
                   {file.originalName}
                 </div>
               </td>
+
               <td>{formatFileSize(file.size)}</td>
               <td>{file.owner.username}</td>
               <td>{formatDate(file.uploadedAt)}</td>
@@ -89,26 +111,29 @@ const FileList = ({
               {isOwner && (
                 <td>
                   {file.sharedWith.length > 0 ? (
-                    <span className="shared-count">{file.sharedWith.length} user(s)</span>
+                    <span className="shared-count">
+                      {file.sharedWith.length} user(s)
+                    </span>
                   ) : (
                     <span className="not-shared">Not shared</span>
                   )}
                 </td>
               )}
 
-              {/* 🧩 Integrity Column */}
-              {/* 🧩 Integrity Column */}
-            <td>
-           <button
-                 onClick={() => verifyIntegrity(file)}
-                 className="btn-action btn-verify"
-                 title="Verify File Integrity"
-         >
-    Verify
-  </button>
-</td>
+              {/* ✅ Integrity Column — only button, no hash */}
+              <td>
+                <div className="integrity-cell">
+                  <button
+                    onClick={() => verifyIntegrity(file)}
+                    className="btn-action btn-verify"
+                    title="Verify File Integrity"
+                  >
+                     Verify
+                  </button>
+                </div>
+              </td>
 
-
+              {/* ✅ Actions */}
               <td>
                 <div className="action-buttons">
                   <button
@@ -150,6 +175,15 @@ const FileList = ({
           ))}
         </tbody>
       </table>
+
+      {/* ✅ Popup component */}
+      {popup.show && (
+        <PopupMessage
+          message={popup.message}
+          type={popup.type}
+          onClose={() => setPopup({ show: false, message: "", type: "" })}
+        />
+      )}
     </div>
   );
 };

@@ -1,25 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../utils/AuthContext';
-import { fileAPI } from '../services/api';
-import FileUpload from '../components/FileUpload';
-import FileList from '../components/FileList';
-import ShareModal from '../components/ShareModal';
-import AuditLogsModal from '../components/AuditLogsModal';
-import '../styles/Dashboard.css';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../utils/AuthContext";
+import { fileAPI } from "../services/api";
+import FileUpload from "../components/FileUpload";
+import FileList from "../components/FileList";
+import ShareModal from "../components/ShareModal";
+import AuditLogsModal from "../components/AuditLogsModal";
+import PopupMessage from "../components/PopupMessage"; // ✅ Add this line
+import "../styles/Dashboard.css";
 
 const Dashboard = () => {
   const [ownedFiles, setOwnedFiles] = useState([]);
   const [sharedFiles, setSharedFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [shareModalFile, setShareModalFile] = useState(null);
   const [auditLogsFile, setAuditLogsFile] = useState(null);
-  const [activeTab, setActiveTab] = useState('owned');
+  const [activeTab, setActiveTab] = useState("owned");
+  const [popup, setPopup] = useState({ show: false, message: "", type: "" }); // ✅ Popup state
 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // ✅ Reusable popup function
+  const showPopup = (message, type = "success") => {
+    setPopup({ show: true, message, type });
+  };
 
   useEffect(() => {
     fetchFiles();
@@ -31,9 +38,10 @@ const Dashboard = () => {
       const response = await fileAPI.getFiles();
       setOwnedFiles(response.data.data.ownedFiles);
       setSharedFiles(response.data.data.sharedFiles);
-      setError('');
+      setError("");
     } catch (err) {
-      setError('Failed to fetch files');
+      setError("Failed to fetch files");
+      showPopup("⚠️ Failed to fetch files.", "error");
       console.error(err);
     } finally {
       setLoading(false);
@@ -43,61 +51,77 @@ const Dashboard = () => {
   const handleUploadSuccess = () => {
     setShowUpload(false);
     fetchFiles();
+    showPopup("✅ File uploaded successfully!", "success");
   };
 
   const handleDownload = async (file) => {
     try {
       const response = await fileAPI.downloadFile(file._id);
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', file.originalName);
+      link.setAttribute("download", file.originalName);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      showPopup(`✅ ${file.originalName} downloaded successfully!`, "success");
     } catch (err) {
-      alert('Failed to download file');
-      console.error(err);
+      console.error("Download error:", err);
+      showPopup("❌ Failed to download file.", "error");
     }
   };
 
-  const handleDelete = async (fileId) => {
-    if (!window.confirm('Are you sure you want to delete this file?')) return;
+  
+ const handleDelete = async (fileId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await fetch(`http://localhost:5000/api/files/${fileId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-    try {
-      await fileAPI.deleteFile(fileId);
-      fetchFiles();
-    } catch (err) {
-      alert('Failed to delete file');
-      console.error(err);
+    const data = await response.json();
+
+    if (response.ok) {
+      // ✅ Show success popup immediately
+      showPopup("🗑️ File deleted successfully", "success");
+
+      // ⏳ Delay refresh slightly so popup has time to display
+      setTimeout(() => {
+        fetchFiles(); // ✅ Correct function name
+      }, 400); // 400ms = smooth timing for popup visibility
+    } else {
+      // ⚠️ Show error popup
+      showPopup(data.message || "❌ Failed to delete file", "error");
     }
-  };
+  } catch (error) {
+    showPopup("⚠️ Error deleting file", "error");
+  }
+};
 
-  const handleShare = (file) => {
-    setShareModalFile(file);
-  };
 
-  const handleViewAuditLogs = (file) => {
-    setAuditLogsFile(file);
-  };
+
+  const handleShare = (file) => setShareModalFile(file);
+  const handleViewAuditLogs = (file) => setAuditLogsFile(file);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
+  const formatDate = (dateString) => new Date(dateString).toLocaleString();
 
   return (
     <div className="dashboard">
@@ -116,10 +140,7 @@ const Dashboard = () => {
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h2>My Vault</h2>
-          <button 
-            onClick={() => setShowUpload(true)} 
-            className="btn-primary"
-          >
+          <button onClick={() => setShowUpload(true)} className="btn-primary">
             + Upload File
           </button>
         </div>
@@ -128,14 +149,14 @@ const Dashboard = () => {
 
         <div className="tabs">
           <button
-            className={`tab ${activeTab === 'owned' ? 'active' : ''}`}
-            onClick={() => setActiveTab('owned')}
+            className={`tab ${activeTab === "owned" ? "active" : ""}`}
+            onClick={() => setActiveTab("owned")}
           >
             My Files ({ownedFiles.length})
           </button>
           <button
-            className={`tab ${activeTab === 'shared' ? 'active' : ''}`}
-            onClick={() => setActiveTab('shared')}
+            className={`tab ${activeTab === "shared" ? "active" : ""}`}
+            onClick={() => setActiveTab("shared")}
           >
             Shared With Me ({sharedFiles.length})
           </button>
@@ -145,7 +166,7 @@ const Dashboard = () => {
           <div className="loading">Loading files...</div>
         ) : (
           <>
-            {activeTab === 'owned' && (
+            {activeTab === "owned" && (
               <FileList
                 files={ownedFiles}
                 isOwner={true}
@@ -157,8 +178,7 @@ const Dashboard = () => {
                 formatDate={formatDate}
               />
             )}
-
-            {activeTab === 'shared' && (
+            {activeTab === "shared" && (
               <FileList
                 files={sharedFiles}
                 isOwner={false}
@@ -191,6 +211,15 @@ const Dashboard = () => {
           file={auditLogsFile}
           onClose={() => setAuditLogsFile(null)}
           formatDate={formatDate}
+        />
+      )}
+
+      {/* ✅ Popup message */}
+      {popup.show && (
+        <PopupMessage
+          message={popup.message}
+          type={popup.type}
+          onClose={() => setPopup({ show: false, message: "", type: "" })}
         />
       )}
     </div>
