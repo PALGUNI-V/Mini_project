@@ -15,61 +15,65 @@ exports.uploadFile = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
+const uploadedFile = req.file;
+const userId = req.user._id;
+const fileBuffer = await fs.readFile(uploadedFile.path);
 
-    const uploadedFile = req.file;
-    const userId = req.user._id;
-    const fileBuffer = await fs.readFile(uploadedFile.path);
+const watermarkData = {
+  ownerId: userId.toString(),
+  timestamp: new Date().toISOString(),
+  username: req.user.username
+};
 
-    const watermarkData = {
-      ownerId: userId.toString(),
-      timestamp: new Date().toISOString(),
-      username: req.user.username
-    };
+console.log("🧩 Starting AES-256 encryption with invisible watermark...");
+console.log("📄 Original File:", uploadedFile.originalname);
+console.log("👤 Embedding watermark for:", watermarkData.username);
 
-    const { encryptedBuffer } = await encryptionUtil.encryptFile(fileBuffer, watermarkData);
+const { encryptedBuffer } = await encryptionUtil.encryptFile(fileBuffer, watermarkData);
 
-    const encryptedFilename = encryptionUtil.generateSecureFilename(uploadedFile.originalname);
-    const encryptedPath = path.join(process.env.UPLOAD_DIR || './uploads', encryptedFilename);
+const encryptedFilename = encryptionUtil.generateSecureFilename(uploadedFile.originalname);
+const encryptedPath = path.join(process.env.UPLOAD_DIR || './uploads', encryptedFilename);
+await fs.writeFile(encryptedPath, encryptedBuffer);
 
-    await fs.writeFile(encryptedPath, encryptedBuffer);
+// ✅ Compute SHA-256 integrity hash
+const encryptedHash = crypto.createHash('sha256').update(encryptedBuffer).digest('hex');
+console.log("🔒 AES Encryption successful. Encrypted file saved as:", encryptedFilename);
+console.log("✅ SHA-256 Integrity Hash:", encryptedHash);
 
-    // ✅ Compute integrity hash of encrypted file
-    const encryptedHash = crypto.createHash('sha256').update(encryptedBuffer).digest('hex');
+await fs.unlink(uploadedFile.path);
+console.log("💧 Watermark embedded and original file deleted from temp.");
 
-    await fs.unlink(uploadedFile.path);
+const file = await File.create({
+  filename: encryptedFilename,
+  originalName: uploadedFile.originalname,
+  mimeType: uploadedFile.mimetype,
+  size: uploadedFile.size,
+  encryptedPath,
+  owner: userId,
+  integrityHash: encryptedHash,
+  watermarkData: { ...watermarkData, embedded: true }
+});
 
-    const file = await File.create({
-      filename: encryptedFilename,
-      originalName: uploadedFile.originalname,
-      mimeType: uploadedFile.mimetype,
-      size: uploadedFile.size,
-      encryptedPath,
-      owner: userId,
-      integrityHash: encryptedHash,
-      watermarkData: { ...watermarkData, embedded: true }
-    });
+await AuditLog.logAction({
+  file: file._id,
+  action: 'upload',
+  performedBy: userId,
+  ipAddress: req.ip,
+  userAgent: req.get('user-agent')
+});
 
-    await AuditLog.logAction({
-      file: file._id,
-      action: 'upload',
-      performedBy: userId,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+res.status(201).json({
+  success: true,
+  message: 'File uploaded and encrypted successfully',
+  data: { file }
+});
 
-    res.status(201).json({
-      success: true,
-      message: 'File uploaded and encrypted successfully',
-      data: { file }
-    });
   } catch (error) {
     console.error('Upload error:', error);
     if (req.file && req.file.path) await fs.unlink(req.file.path).catch(() => {});
     res.status(500).json({ success: false, message: 'Error uploading file', error: error.message });
   }
 };
-
-
 /**
  * Download and decrypt file
  * GET /api/files/:fileId/download
