@@ -73,7 +73,7 @@ const AuditLogsModal = ({ file, onClose, formatDate }) => {
                     <th>User</th>
                     <th>Target User</th>
                     <th>Timestamp</th>
-                    <th>IP Address</th>
+                    
                   </tr>
                 </thead>
                 <tbody>
@@ -124,11 +124,6 @@ const AuditLogsModal = ({ file, onClose, formatDate }) => {
                         )}
                       </td>
                       <td>{formatDate(log.timestamp)}</td>
-                      <td>
-                        <code className="ip-address">
-                          {log.ipAddress || 'N/A'}
-                        </code>
-                      </td>
                     </tr>
                   ))}
                 </tbody>

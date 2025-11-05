@@ -97,18 +97,17 @@ const FileList = ({
               )}
 
               {/* 🧩 Integrity Column */}
-              <td>
-                <div className="integrity-cell">
-                  <code>{file.integrityHash?.slice(0, 10)}...</code>
-                  <button
-                    onClick={() => verifyIntegrity(file)}
-                    className="btn-action btn-verify"
-                    title="Verify Integrity"
-                  >
-                    ✅
-                  </button>
-                </div>
-              </td>
+              {/* 🧩 Integrity Column */}
+            <td>
+           <button
+                 onClick={() => verifyIntegrity(file)}
+                 className="btn-action btn-verify"
+                 title="Verify File Integrity"
+         >
+    Verify
+  </button>
+</td>
+
 
               <td>
                 <div className="action-buttons">

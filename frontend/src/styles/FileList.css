@@ -116,3 +116,33 @@
     font-size: 1.1rem;
   }
 }
+.btn-verify {
+  background-color: #4CAF50;     /* subtle green */
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;               /* smaller text */
+  padding: 3px 8px;              /* smaller height & width */
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.btn-verify:hover {
+  background-color: #3e8e41;
+  transform: scale(1.05);
+}
+
+.btn-verify:active {
+  transform: scale(0.97);
+}
+.btn-verified {
+  background-color: #9E9E9E;     /* gray color */
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;               /* smaller text */
+  padding: 3px 8px;              /* smaller height & width */
+  cursor: default;
+  font-weight: 500;
+}
