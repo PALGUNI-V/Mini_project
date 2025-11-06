@@ -8,7 +8,16 @@ const auditLogSchema = new mongoose.Schema({
   },
   action: {
     type: String,
-    enum: ['upload', 'download', 'share', 'unshare', 'delete', 'view'],
+    enum: [
+      'upload',
+      'download',
+      'share',
+      'unshare',
+      'delete',
+      'view',
+      'verify',    // ✅ added
+      'tamper'     // ✅ added (optional but useful)
+    ],
     required: true
   },
   performedBy: {
@@ -20,12 +29,8 @@ const auditLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  ipAddress: {
-    type: String
-  },
-  userAgent: {
-    type: String
-  },
+  ipAddress: String,
+  userAgent: String,
   timestamp: {
     type: Date,
     default: Date.now
@@ -35,17 +40,17 @@ const auditLogSchema = new mongoose.Schema({
   }
 });
 
-// Index for faster queries
+// Indexes for faster queries
 auditLogSchema.index({ file: 1, timestamp: -1 });
 auditLogSchema.index({ performedBy: 1, timestamp: -1 });
 
-// Static method to log action
-auditLogSchema.statics.logAction = async function(data) {
+// Static method to log actions safely
+auditLogSchema.statics.logAction = async function (data) {
   try {
     return await this.create(data);
   } catch (error) {
     console.error('Failed to create audit log:', error);
-    // Don't throw error to prevent disrupting main flow
+    // Log silently so it doesn't break main app flow
   }
 };
 

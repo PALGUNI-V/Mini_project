@@ -140,7 +140,7 @@ const Dashboard = () => {
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h2>My Vault</h2>
-          <button onClick={() => setShowUpload(true)} className="btn-primary">
+          <button onClick={() => setShowUpload(true)} className="btn-upload">
             + Upload File
           </button>
         </div>

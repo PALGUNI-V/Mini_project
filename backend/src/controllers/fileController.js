@@ -41,7 +41,7 @@ console.log("🔒 AES Encryption successful. Encrypted file saved as:", encrypte
 console.log("✅ SHA-256 Integrity Hash:", encryptedHash);
 
 await fs.unlink(uploadedFile.path);
-console.log("💧 Watermark embedded and original file deleted from temp.");
+console.log("💧 Watermark embedded.");
 
 const file = await File.create({
   filename: encryptedFilename,
@@ -137,28 +137,44 @@ exports.downloadFile = async (req, res) => {
  */
 exports.shareFile = async (req, res) => {
   try {
-    const file = req.file; // From checkFileOwnership middleware
+    const { fileId } = req.params; // <-- ensure your route has :fileId
     const { userId, email, username } = req.body;
     const ownerId = req.user._id;
 
-    // Find target user
-    let targetUser;
-    if (userId) {
-      targetUser = await User.findById(userId);
-    } else if (email) {
-      targetUser = await User.findOne({ email });
-    } else if (username) {
-      targetUser = await User.findOne({ username });
+    // ✅ Re-fetch latest file from DB (not from middleware)
+    const file = await File.findById(fileId);
+    if (!file) {
+      return res.status(404).json({ success: false, message: 'File not found' });
     }
 
-    if (!targetUser) {
-      return res.status(404).json({
+    // 🚫 BLOCK 1: If file is tampered, deny sharing immediately
+    if (file.status === 'tampered') {
+      console.log(`🚫 Share blocked: ${file.originalName} marked as tampered.`);
+
+      await AuditLog.logAction({
+        file: file._id,
+        action: 'tamper_share_attempt',
+        performedBy: ownerId,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        metadata: { reason: 'File marked as tampered' }
+      });
+
+      return res.status(403).json({
         success: false,
-        message: 'User not found'
+        message: '❌ File is tampered — sharing disabled for security reasons.'
       });
     }
 
-    // Check if sharing with self
+    // 🚫 BLOCK 2: Prevent self-sharing
+    let targetUser;
+    if (userId) targetUser = await User.findById(userId);
+    else if (email) targetUser = await User.findOne({ email });
+    else if (username) targetUser = await User.findOne({ username });
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
     if (targetUser._id.toString() === ownerId.toString()) {
       return res.status(400).json({
         success: false,
@@ -166,11 +182,10 @@ exports.shareFile = async (req, res) => {
       });
     }
 
-    // Share file
+    // ✅ Continue with normal sharing only if file is secure
     file.shareWith(targetUser._id);
     await file.save();
 
-    // Log action
     await AuditLog.logAction({
       file: file._id,
       action: 'share',
@@ -180,13 +195,14 @@ exports.shareFile = async (req, res) => {
       userAgent: req.get('user-agent')
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: 'File shared successfully',
+      message: '✅ File shared successfully',
       data: { file }
     });
+
   } catch (error) {
-    console.error('Share error:', error);
+    console.error('❌ Share error:', error);
     res.status(500).json({
       success: false,
       message: 'Error sharing file',
@@ -351,45 +367,49 @@ exports.getFiles = async (req, res) => {
  */
 exports.verifyFileIntegrity = async (req, res) => {
   try {
+    console.log("⚙ verifyFileIntegrity endpoint hit"); // 🔍 Check function is called
+
     const fileId = req.params.id;
-    const userId = req.user?._id; // optional for logging
+    const userId = req.user?._id;
     const file = await File.findById(fileId);
 
     if (!file) {
-      return res.status(404).json({
-        match: false,
-        message: "❌ File not found",
-      });
+      console.log("❌ File not found");
+      return res.status(404).json({ match: false, message: "❌ File not found" });
     }
 
-    // Ensure file exists physically
+    // 🔍 Confirm physical file exists
     const fileExists = await fs
       .access(file.encryptedPath)
       .then(() => true)
       .catch(() => false);
+
     if (!fileExists) {
-      return res.status(404).json({
-        match: false,
-        message: "⚠️ File missing on server",
-      });
+      console.log("⚠️ File missing on server");
+      return res.status(404).json({ match: false, message: "⚠️ File missing on server" });
     }
 
-    // Read encrypted file from disk
+    // ✅ Compute new hash
     const fileBuffer = await fs.readFile(file.encryptedPath);
+    const currentHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
 
-    // Recompute hash
-    const currentHash = crypto
-      .createHash("sha256")
-      .update(fileBuffer)
-      .digest("hex");
+    // 🔍 Debug output
+    console.log("DEBUG — currentHash:", currentHash);
+    console.log("DEBUG — storedHash:", file.integrityHash);
 
-    // Compare with stored hash
     const match = currentHash === file.integrityHash;
+    console.log("DEBUG — hashes match?", match);
 
-    // Log audit (optional but recommended)
+    // ✅ Save tampered/secure status in MongoDB
+    file.status = match ? "secure" : "tampered";
+    await file.save();
+
+    console.log("DEBUG — saved file.status now:", file.status);
+
+    // Log action
     await AuditLog.logAction({
       file: file._id,
-      action: "verify",
+      action: match ? "verify" : "tamper",
       performedBy: userId || null,
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
@@ -400,20 +420,18 @@ exports.verifyFileIntegrity = async (req, res) => {
       },
     });
 
-    // Send response based on match result
+    // Send response for UI
     if (match) {
-      console.log(`✅ Integrity verified for ${file.originalName}`);
       return res.status(200).json({
         match: true,
-        watermarkData: file.watermarkData || null,
+        status: file.status,
         message: "✅ File integrity verified successfully",
       });
     } else {
-      console.warn(`⚠️ Integrity mismatch detected for ${file.originalName}`);
       return res.status(200).json({
         match: false,
-        watermarkData: file.watermarkData || null,
-        message: "⚠️ Integrity mismatch detected – file may be modified or corrupted",
+        status: file.status,
+        message: "⚠️ Integrity mismatch detected — file marked as tampered",
       });
     }
   } catch (error) {

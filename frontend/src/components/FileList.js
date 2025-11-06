@@ -147,12 +147,18 @@ const FileList = ({
                   {isOwner && (
                     <>
                       <button
-                        onClick={() => onShare(file)}
-                        className="btn-action btn-share"
-                        title="Share"
-                      >
-                        👥
-                      </button>
+  onClick={() => onShare(file)}
+  className="btn-action btn-share"
+  title={file.status === "tampered" ? "File Tampered — Sharing Disabled" : "Share"}
+  disabled={file.status === "tampered"}   // 🚫 Disable only Share
+  style={{
+    opacity: file.status === "tampered" ? 0.5 : 1,
+    cursor: file.status === "tampered" ? "not-allowed" : "pointer",
+  }}
+>
+  👥
+</button>
+
                       <button
                         onClick={() => onViewAuditLogs(file)}
                         className="btn-action btn-logs"

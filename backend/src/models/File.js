@@ -51,6 +51,12 @@ const fileSchema = new mongoose.Schema({
       default: false
     }
   },
+  status: {
+  type: String,
+  enum: ['secure', 'tampered'],
+  default: 'secure'
+},
+
   uploadedAt: {
     type: Date,
     default: Date.now
