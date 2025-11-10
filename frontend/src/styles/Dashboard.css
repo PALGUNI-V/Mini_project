@@ -295,3 +295,17 @@
     font-size: 0.85rem;
   }
 }
+.btn-action svg {
+  vertical-align: middle;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-action:hover svg {
+  transform: scale(1.15);
+  opacity: 0.8;
+}
+
+.file-icon svg {
+  margin-right: 6px;
+  color: #007bff;
+}

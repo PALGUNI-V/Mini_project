@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import "../styles/Modal.css"
 import "../styles/Dashboard.css"
 import PopupMessage from "./PopupMessage"; // ✅ Add this component for popup notifications
+import { FileText, Download, Share2, Trash2, ClipboardList, ShieldCheck } from "lucide-react";
+
 
 const FileList = ({
   files,
@@ -100,7 +102,7 @@ const FileList = ({
             <tr key={file._id}>
               <td>
                 <div className="file-name-cell">
-                  <span className="file-icon">📄</span>
+                  <span className="file-icon"><FileText size={18} /></span>
                   {file.originalName}
                 </div>
               </td>
@@ -129,7 +131,7 @@ const FileList = ({
                     className="btn-action btn-verify"
                     title="Verify File Integrity"
                   >
-                     Verify
+                      <ShieldCheck size={18} />
                   </button>
                 </div>
               </td>
@@ -139,11 +141,9 @@ const FileList = ({
                 <div className="action-buttons">
                   <button
                     onClick={() => onDownload(file)}
-                    className="btn-action btn-download"
-                    title="Download"
-                  >
-                    ⬇️
-                  </button>
+                    className="btn-action btn-download" title="Download">
+  <Download size={18} />
+</button>
 
                   {isOwner && (
                     <>
@@ -157,7 +157,7 @@ const FileList = ({
     cursor: file.status === "tampered" ? "not-allowed" : "pointer",
   }}
 >
-  👥
+    <Share2 size={18} />
 </button>
 
                       <button
@@ -165,14 +165,14 @@ const FileList = ({
                         className="btn-action btn-logs"
                         title="View Audit Logs"
                       >
-                        📋
+                         <ClipboardList size={18} />
                       </button>
                       <button
                         onClick={() => onDelete(file._id)}
                         className="btn-action btn-delete"
                         title="Delete"
                       >
-                        🗑️
+                         <Trash2 size={18} />
                       </button>
                     </>
                   )}
