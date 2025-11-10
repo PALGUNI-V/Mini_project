@@ -156,3 +156,142 @@
     width: 100%;
   }
 }
+/* =========================
+   File List Section Styling
+========================= */
+.file-list {
+  margin-top: 25px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.file-table th,
+.file-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.file-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #444;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.file-table tr:hover {
+  background: #fafafa;
+}
+
+/* File name cell */
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-icon {
+  font-size: 1.2rem;
+}
+
+/* Empty state in Files section */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: #777;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.empty-hint {
+  color: #999;
+  font-size: 0.95rem;
+}
+
+/* Action buttons section */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.3rem;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-action:hover {
+  transform: scale(1.15);
+}
+
+/* Colored buttons */
+.btn-download {
+  color: #0077b6;
+}
+
+.btn-verify {
+  background: #f2ebff;
+  color: #6a0dad;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  padding: 5px 10px;
+  border: 1px solid #e0d8f0;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-verify:hover {
+  background: #e6dcff;
+}
+
+.btn-share {
+  color: #28a745;
+}
+
+.btn-logs {
+  color: #ffb400;
+}
+
+.btn-delete {
+  color: #e74c3c;
+}
+
+.shared-count {
+  color: #0077b6;
+  font-weight: 600;
+}
+
+.not-shared {
+  color: #999;
+}
+
+/* Responsive fix */
+@media (max-width: 768px) {
+  .file-table th,
+  .file-table td {
+    padding: 10px 8px;
+    font-size: 0.85rem;
+  }
+}

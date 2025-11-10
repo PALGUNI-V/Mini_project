@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import "../styles/FileList.css";
+import "../styles/Modal.css"; // ✅ adjust path if needed
 
 const PopupMessage = ({ message, type = "success", onClose }) => {
   const [visible, setVisible] = useState(true);

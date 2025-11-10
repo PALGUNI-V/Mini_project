@@ -16,7 +16,10 @@ const auditLogSchema = new mongoose.Schema({
       'delete',
       'view',
       'verify',    // ✅ added
-      'tamper'     // ✅ added (optional but useful)
+      'tamper' ,
+      'tamper_share_attempt',
+      'integrity_restored'   // ✅ added (optional but useful)
+          // ✅ added (optional but useful)
     ],
     required: true
   },
